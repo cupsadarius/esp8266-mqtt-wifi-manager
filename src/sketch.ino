@@ -38,9 +38,9 @@ void handleIncommingMessage(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println();
 
-  if (topic == name) {
+  if (!strcmp(topic, name)) {
     Serial.println("got individual message");
-  } else if (topic == group) {
+  } else if (!strcmp(topic, group)) {
     Serial.println("got message on group topic");
   } else {
     // Switch on the LED if an 1 was received as first character
