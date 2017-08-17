@@ -12,6 +12,8 @@ char mqtt_server[40];
 char mqtt_port[6];
 char mqtt_user[30];
 char mqtt_pass[30];
+char group[30];
+char name[30];
 String device_uid = "device-" + String(random(0xffff), HEX);
 
 // instance of MQTT client
@@ -36,15 +38,20 @@ void handleIncommingMessage(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println();
 
-  // Switch on the LED if an 1 was received as first character
-  if ((char)payload[0] == '1') {
-    digitalWrite(BUILTIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
-    // but actually the LED is on; this is because
-    // it is acive low on the ESP-01)
+  if (topic == name) {
+    Serial.println("got individual message");
+  } else if (topic == group) {
+    Serial.println("got message on group topic");
   } else {
-    digitalWrite(BUILTIN_LED, HIGH);  // Turn the LED off by making the voltage HIGH
+    // Switch on the LED if an 1 was received as first character
+    if ((char)payload[0] == '1') {
+      digitalWrite(BUILTIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
+      // but actually the LED is on; this is because
+      // it is acive low on the ESP-01)
+    } else {
+      digitalWrite(BUILTIN_LED, HIGH);  // Turn the LED off by making the voltage HIGH
+    }
   }
-
 }
 
 void setup() {
@@ -53,7 +60,7 @@ void setup() {
   Serial.println();
 
   // format flash storage, used when testing to not store the config between reboots
-  SPIFFS.format();
+  // SPIFFS.format();
 
 
   Serial.println("mounting FS...");
@@ -81,6 +88,8 @@ void setup() {
           strcpy(mqtt_user, json["mqtt_user"]); // populate mqtt_user from config
           strcpy(mqtt_pass, json["mqtt_pass"]); // populate mqtt_pass from config
           device_uid = json["device_uid"].asString(); // populate device id from config
+          strcpy(group, json["group"]);
+          strcpy(name, json["name"]);
 
         } else { // json conversion failed
           Serial.println("failed to load json config");
@@ -98,6 +107,8 @@ void setup() {
   WiFiManagerParameter custom_mqtt_port("port", "mqtt port", mqtt_port, 6);
   WiFiManagerParameter custom_mqtt_user("user", "mqtt user", mqtt_port, 30);
   WiFiManagerParameter custom_mqtt_pass("pass", "mqtt password", mqtt_pass, 30);
+  WiFiManagerParameter custom_group("group", "gropup", group, 30);
+  WiFiManagerParameter custom_name("name", "device name", name, 30);
 
   // WiFiManager
   // Local intialization. Once its business is done, there is no need to keep it around
@@ -111,9 +122,11 @@ void setup() {
   wifiManager.addParameter(&custom_mqtt_port);
   wifiManager.addParameter(&custom_mqtt_user);
   wifiManager.addParameter(&custom_mqtt_pass);
+  wifiManager.addParameter(&custom_name);
+  wifiManager.addParameter(&custom_group);
 
   // reset portal settings. used for testing only. to force opening the portal on each boot.
-  wifiManager.resetSettings();
+  // wifiManager.resetSettings();
 
   // if the board could not connect to wifi on the first boot.
   // an access point called Configure Device would be created
@@ -143,6 +156,8 @@ void setup() {
     strcpy(mqtt_port, custom_mqtt_port.getValue());
     strcpy(mqtt_user, custom_mqtt_user.getValue());
     strcpy(mqtt_pass, custom_mqtt_pass.getValue());
+    strcpy(group, custom_group.getValue());
+    strcpy(name, custom_name.getValue());
 
     // -- begin conversion of parameters to json and save them to flash storage --
     Serial.println("saving config");
@@ -153,6 +168,8 @@ void setup() {
     json["mqtt_user"] = mqtt_user;
     json["mqtt_pass"] = mqtt_pass;
     json["device_uid"] = device_uid.c_str();
+    json["group"] = group;
+    json["name"] = name;
 
 
     File configFile = SPIFFS.open("/config.json", "w");
@@ -192,6 +209,8 @@ void reconnect() {
 
       // subscribe to what channels you want to listen to.
       client.subscribe("action");
+      client.subscribe(group);
+      client.subscribe(name);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -202,7 +221,10 @@ void reconnect() {
   }
   // publish to the bus, a message used for auto discovery.
   Serial.println(("Device connected " + device_uid).c_str());
-  client.publish("discover", ("Device connected " + device_uid).c_str());
+  client.publish("connected-device", name);
+  if (group) {
+    client.publish("connected-in-group", group);
+  }
 }
 
 void loop() {
