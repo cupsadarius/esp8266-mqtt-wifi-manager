@@ -45,11 +45,8 @@ void handleIncommingMessage(char* topic, byte* payload, unsigned int length) {
 
   if (!strcmp(topic, name)) {
     Serial.println("got individual message");
-    controlServo(atoi(payload));
-    contr
   } else if (!strcmp(topic, group)) {
     Serial.println("got message on group topic");
-    controlServo(atoi(payload));
   }
 }
 
