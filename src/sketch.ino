@@ -5,6 +5,7 @@
 #include <WiFiManager.h>
 #include <ArduinoJson.h>
 #include <PubSubClient.h>
+#include <Servo.h>
 
 // global variables which hold the mqtt server credentials and a random generated device id
 // which will be populated from config.json if exists or by the user in the config portal
@@ -15,6 +16,8 @@ char mqtt_pass[30];
 char group[30];
 char name[30];
 String device_uid = "device-" + String(random(0xffff), HEX);
+int servoPin = 12;
+Servo head;
 
 // instance of MQTT client
 WiFiClient espClient;
@@ -30,7 +33,7 @@ void saveConfigCallback () {
 }
 
 void controlServo(int angle) {
-
+  head.write(angle);
 }
 
 
@@ -38,15 +41,19 @@ void handleIncommingMessage(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
+  char angle[3];
   for (int i = 0; i < length; i++) {
     Serial.print((char)payload[i]);
+    angle[i] = (char)payload[i];
   }
   Serial.println();
 
   if (!strcmp(topic, name)) {
     Serial.println("got individual message");
+    controlServo(atoi(angle));
   } else if (!strcmp(topic, group)) {
     Serial.println("got message on group topic");
+    controlServo(atoi(angle));
   }
 }
 
@@ -54,7 +61,7 @@ void setup() {
   // initialize serial communication
   Serial.begin(115200);
   Serial.println();
-
+  head.attach(servoPin);
   // format flash storage, used when testing to not store the config between reboots
   // SPIFFS.format();
 
